@@ -22,6 +22,7 @@ onion_ntor_source=
 endif
 
 src_or_libtor_a_SOURCES = \
+  src/sandbox/sandbox.c \
 	src/or/addressmap.c				\
 	src/or/buffers.c				\
 	src/or/channel.c				\
@@ -156,7 +157,8 @@ ORHEADERS = \
 	src/or/routerset.h				\
 	src/or/routerparse.h				\
 	src/or/statefile.h				\
-	src/or/status.h
+	src/or/status.h \
+	src/sandbox/sandbox.h
 
 noinst_HEADERS+= $(ORHEADERS) micro-revision.i
 

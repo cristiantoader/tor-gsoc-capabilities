@@ -57,6 +57,7 @@
 #include <openssl/crypto.h>
 #endif
 #include "memarea.h"
+#include "../sandbox/sandbox.h"
 
 #ifdef HAVE_EVENT2_EVENT_H
 #include <event2/event.h>
@@ -2668,6 +2669,7 @@ tor_main(int argc, char *argv[])
   }
 #endif
 
+  tor_global_sandbox();
   update_approx_time(time(NULL));
   tor_threads_init();
   init_logging();
