@@ -5,8 +5,6 @@
  *      Author: cristi
  */
 
-#include <stdio.h>
-
 #include "sandbox.h"
 #include "seccomp2.h"
 #include "filters.h"
@@ -38,9 +36,9 @@ static int install_syscall_filter(void) {
 static void emulator(int nr, siginfo_t *info, void *void_context) {
   ucontext_t *ctx = (ucontext_t *) (void_context);
   int syscall;
-  char *buf;
-  ssize_t bytes;
-  size_t len;
+//  char *buf;
+//  ssize_t bytes;
+//  size_t len;
 
   if (info->si_code != SYS_SECCOMP)
     return;
@@ -49,10 +47,10 @@ static void emulator(int nr, siginfo_t *info, void *void_context) {
     return;
 
   syscall = ctx->uc_mcontext.gregs[REG_SYSCALL];
-  buf = (char *) ctx->uc_mcontext.gregs[REG_ARG1];
-  len = (size_t) ctx->uc_mcontext.gregs[REG_ARG2];
+//  buf = (char *) ctx->uc_mcontext.gregs[REG_ARG1];
+//  len = (size_t) ctx->uc_mcontext.gregs[REG_ARG2];
 
-  fprintf(stderr, "Cought %d\n", syscall);
+  fprintf(stderr, "Cought syscall %d\n", syscall);
 
   return;
 }

@@ -68,23 +68,6 @@ struct seccomp_data {
 #define syscall_arg(_n) (offsetof(struct seccomp_data, args[_n]))
 #define syscall_nr (offsetof(struct seccomp_data, nr))
 
-#define REG_EAX                         (0 << 8)
-#define REG_ECX                         (1 << 8)
-#define REG_EDX                         (2 << 8)
-#define REG_EBX                         (3 << 8)
-#define REG_ESP                         (4 << 8)
-#define REG_EBP                         (5 << 8)
-#define REG_ESI                         (6 << 8)
-#define REG_EDI                         (7 << 8)
-#define REG_R8                         (8 << 8)
-#define REG_R9                         (9 << 8)
-#define REG_R10                        (10 << 8)
-#define REG_R11                        (11 << 8)
-#define REG_R12                        (12 << 8)
-#define REG_R13                        (13 << 8)
-#define REG_R14                        (14 << 8)
-#define REG_R15                        (15 << 8)
-
 #if defined(__i386__)
 #define REG_RESULT  REG_EAX
 #define REG_SYSCALL REG_EAX
@@ -106,26 +89,6 @@ struct seccomp_data {
 #else
 #error Unsupported platform
 #endif
-
-//// TODO: this is a hack, get these properly!
-#define __NR_SYSCALL_BASE               0x900000
-//
-//#define __NR_socket                     (__NR_SYSCALL_BASE+281)
-//#define __NR_bind                       (__NR_SYSCALL_BASE+282)
-//#define __NR_connect                    (__NR_SYSCALL_BASE+283)
-//#define __NR_listen                     (__NR_SYSCALL_BASE+284)
-//#define __NR_accept                     (__NR_SYSCALL_BASE+285)
-//#define __NR_getsockname                (__NR_SYSCALL_BASE+286)
-//#define __NR_getsockopt                 (__NR_SYSCALL_BASE+295)
-//#define __NR_sendmsg                    (__NR_SYSCALL_BASE+296)
-//#define __NR_recvmsg                    (__NR_SYSCALL_BASE+297)
-//#define __NR_sendto                     (__NR_SYSCALL_BASE+290)
-//#define __NR_setsockopt                 (__NR_SYSCALL_BASE+294)
-//#define __NR_socketpair                 (__NR_SYSCALL_BASE+288)
-#define __NR_SYS_340                    (340)
-#define __NR_SYS_51                     (51)
-#define __NR_SYS_102                    (102)
-
 
 #define VALIDATE_ARCHITECTURE \
 	BPF_STMT(BPF_LD+BPF_W+BPF_ABS, arch_nr), \
