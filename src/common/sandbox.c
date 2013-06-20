@@ -9,9 +9,9 @@
 #include "seccomp2.h"
 #include "filters.h"
 
-#include <seccomp.h>
+#define __LIBSECCOMP__
 
-static int install_syscall_filter(void) {
+static int install_seccomp2(void) {
   struct sock_fprog prog = {
     .len = (unsigned short)(sizeof(test_filter)/sizeof(test_filter[0])),
     .filter = test_filter,
@@ -32,6 +32,58 @@ static int install_syscall_filter(void) {
   if (errno == EINVAL)
   fprintf(stderr, "SECCOMP_FILTER is not available. :(\n");
   return 1;
+}
+
+static int install_libseccomp(void) {
+  int rc = 0, i, filter_size;
+  scmp_filter_ctx ctx;
+
+  do {
+    ctx = seccomp_init(SCMP_ACT_TRAP);
+    if (ctx == NULL) {
+      rc = -1;
+      break;
+    }
+
+    if(general_filter != NULL) {
+      filter_size = sizeof(general_filter) / sizeof(general_filter[0]);
+    } else {
+      filter_size = 0;
+    }
+
+    for(i = 0; i < filter_size; i++) {
+      rc = seccomp_rule_add_exact(ctx, SCMP_ACT_ALLOW, general_filter[i], 0);
+      if (rc != 0) {
+        break;
+      }
+    }
+
+    if(rc != 0) {
+      break;
+    }
+
+    rc = seccomp_load(ctx);
+    if(rc != 0) {
+      break;
+    }
+
+  } while(0);
+
+  seccomp_release(ctx);
+
+  return (rc < 0 ? -rc : rc);
+}
+
+static int install_syscall_filter(void) {
+  int ret = 0;
+
+#ifdef __LIBSECCOMP__
+  ret = install_libseccomp();
+#else
+  ret = install_seccomp2();
+#endif
+
+  return ret;
 }
 
 static void emulator(int nr, siginfo_t *info, void *void_context) {
@@ -77,8 +129,10 @@ static int install_emulator(void) {
 }
 
 int tor_global_sandbox() {
-  install_emulator();
-  install_syscall_filter();
+  int ret = 0;
 
-  return 0;
+  install_emulator();
+  ret = install_syscall_filter();
+
+  return ret;
 }
