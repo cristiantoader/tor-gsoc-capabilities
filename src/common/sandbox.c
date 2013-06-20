@@ -9,6 +9,7 @@
 #include "seccomp2.h"
 #include "filters.h"
 
+#include <seccomp.h>
 
 static int install_syscall_filter(void) {
   struct sock_fprog prog = {
