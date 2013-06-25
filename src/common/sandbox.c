@@ -51,6 +51,9 @@ static int install_libseccomp(void) {
       filter_size = 0;
     }
 
+    // TODO: precise file filters
+
+    // add general filters
     for(i = 0; i < filter_size; i++) {
       rc = seccomp_rule_add_exact(ctx, SCMP_ACT_ALLOW, general_filter[i], 0);
       if (rc != 0) {

@@ -13,18 +13,12 @@
 #include <seccomp.h>
 
 int general_filter[] = {
-  SCMP_SYS(rt_sigreturn),
-  SCMP_SYS(sigreturn),
-  SCMP_SYS(exit_group),
-  SCMP_SYS(exit),
-  SCMP_SYS(write),
-  SCMP_SYS(fstat64),
-  SCMP_SYS(mmap2),
+  // mix
   SCMP_SYS(access),
   SCMP_SYS(brk),
   SCMP_SYS(clock_gettime),
-  SCMP_SYS(clone),
   SCMP_SYS(close),
+  SCMP_SYS(clone),
   SCMP_SYS(epoll_create),
   SCMP_SYS(epoll_ctl),
   SCMP_SYS(epoll_wait),
@@ -53,15 +47,32 @@ int general_filter[] = {
   SCMP_SYS(rename),
   SCMP_SYS(rt_sigaction),
   SCMP_SYS(rt_sigprocmask),
+  SCMP_SYS(rt_sigreturn),
+  SCMP_SYS(sigreturn),
   SCMP_SYS(set_robust_list),
   SCMP_SYS(set_thread_area),
   SCMP_SYS(set_tid_address),
   SCMP_SYS(stat64),
-  SCMP_SYS(prlimit64),
   SCMP_SYS(time),
   SCMP_SYS(uname),
   SCMP_SYS(write),
-  SCMP_SYS(socketcall)
+  SCMP_SYS(exit_group),
+  SCMP_SYS(exit),
+
+  // socket syscalls
+  SCMP_SYS(accept4),
+  SCMP_SYS(bind),
+  SCMP_SYS(connect),
+  SCMP_SYS(getsockname),
+  SCMP_SYS(getsockopt),
+  SCMP_SYS(listen),
+  SCMP_SYS(recv),
+  SCMP_SYS(recvmsg),
+  SCMP_SYS(send),
+  SCMP_SYS(sendto),
+  SCMP_SYS(setsockopt),
+  SCMP_SYS(socket),
+  SCMP_SYS(socketpair)
 };
 
 struct sock_filter test_filter[] = {
