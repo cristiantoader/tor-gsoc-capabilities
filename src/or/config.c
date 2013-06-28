@@ -369,6 +369,7 @@ static config_var_t option_vars_[] = {
   V(RunAsDaemon,                 BOOL,     "0"),
 //  V(RunTesting,                  BOOL,     "0"),
   OBSOLETE("RunTesting"), // currently unused
+  V(Sandbox,                     BOOL,     "0"),
   V(SafeLogging,                 STRING,   "1"),
   V(SafeSocks,                   BOOL,     "0"),
   V(ServerDNSAllowBrokenConfig,  BOOL,     "1"),

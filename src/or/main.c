@@ -2672,7 +2672,6 @@ tor_main(int argc, char *argv[])
   }
 #endif
 
-  tor_global_sandbox();
   update_approx_time(time(NULL));
   tor_threads_init();
   init_logging();
@@ -2693,6 +2692,9 @@ tor_main(int argc, char *argv[])
 #endif
   if (tor_init(argc, argv)<0)
     return -1;
+
+  tor_global_sandbox();
+
   switch (get_options()->command) {
   case CMD_RUN_TOR:
 #ifdef NT_SERVICE
