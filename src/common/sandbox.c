@@ -9,10 +9,6 @@
 #include "seccomp2.h"
 #include "filters.h"
 
-#define __LIBSECCOMP__
-
-#ifdef __LIBSECCOMP__
-
 static int
 install_glob_syscall_filter(void)
 {
@@ -57,34 +53,6 @@ install_glob_syscall_filter(void)
 
   return (rc < 0 ? -rc : rc);
 }
-
-#else
-
-static int
-install_glob_syscall_filter(void)
-{
-  struct sock_fprog prog = {
-    .len = (unsigned short)(sizeof(test_filter)/sizeof(test_filter[0])),
-    .filter = test_filter,
-  };
-
-  if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
-    perror("prctl(NO_NEW_PRIVS)");
-    goto failed;
-  }
-
-  if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)) {
-    perror("prctl(SECCOMP)");
-    goto failed;
-  }
-  return 0;
-
-  failed:
-  if (errno == EINVAL)
-  fprintf(stderr, "SECCOMP_FILTER is not available. :(\n");
-  return 1;
-}
-#endif
 
 /**
  * Debugging function which is called when a SIGSYS caught by the application.
