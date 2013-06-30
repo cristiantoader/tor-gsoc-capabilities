@@ -2690,9 +2690,12 @@ tor_main(int argc, char *argv[])
   if (tor_init(argc, argv)<0)
     return -1;
 
-  if (get_options()->Sandbox)
-    if (tor_global_sandbox())
+  if (get_options()->Sandbox) {
+    if (tor_global_sandbox()) {
+      log_err(LD_BUG,"Failed to create syscall sandbox filter");
       return -1;
+    }
+  }
 
   switch (get_options()->command) {
   case CMD_RUN_TOR:

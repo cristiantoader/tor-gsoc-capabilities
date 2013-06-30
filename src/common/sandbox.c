@@ -9,13 +9,21 @@
  * \brief Code to enable sandboxing.
  **/
 
-#include <seccomp.h>
-#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 #include "sandbox.h"
+#include "torlog.h"
+
+/*
+ * Based on the implementation and OS features, a more restrictive ifdef
+ * should be defined.
+ */
+#if defined(__linux__)
+
+#include <seccomp.h>
+#include <signal.h>
 
 /** Variable used for storing all syscall numbers that will be allowed with the
  * stage 1 general Tor sandbox.
@@ -99,6 +107,7 @@ install_glob_syscall_filter(void)
 
   ctx = seccomp_init(SCMP_ACT_TRAP);
   if (ctx == NULL) {
+    log_err(LD_BUG,"(Sandbox) failed to initialise libseccomp context");
     rc = -1;
     goto end;
   }
@@ -113,7 +122,8 @@ install_glob_syscall_filter(void)
   for (i = 0; i < filter_size; i++) {
     rc = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, general_filter[i], 0);
     if (rc != 0) {
-      fprintf(stderr, "i=%d, rc=%d\n", i, rc);
+      log_err(LD_BUG,"(Sandbox) failed to add syscall index %d ,"
+          "received libseccomp error %d", i, rc);
       goto end;
     }
   }
@@ -143,7 +153,7 @@ sigsys_debugging(int nr, siginfo_t *info, void *void_context)
     return;
 
   syscall = ctx->uc_mcontext.gregs[0];
-  fprintf(stderr, "Syscall was intercepted: %d!\n", syscall);
+  log_err(LD_BUG,"(Sandbox) bad syscall was caught: %d!", syscall);
 
   exit(0);
 }
@@ -167,17 +177,37 @@ install_sigsys_debugging(void)
   act.sa_sigaction = &sigsys_debugging;
   act.sa_flags = SA_SIGINFO;
   if (sigaction(SIGSYS, &act, NULL) < 0) {
-    perror("sigaction");
+    log_err(LD_BUG,"(Sandbox) Failed to register SIGSYS signal handler");
     return -1;
   }
 
   if (sigprocmask(SIG_UNBLOCK, &mask, NULL)) {
-    perror("sigprocmask");
-    return -1;
+    log_err(LD_BUG,"(Sandbox) Failed call to sigprocmask()");
+    return -2;
   }
 
   return 0;
 }
+#endif // __linux__
+
+#ifdef __linux__
+/**
+ * Initialises the syscall sandbox filter for any linux architecture, taking
+ * into account various available features for different linux flavours.
+ */
+static int
+initialise_linux_sandbox(void)
+{
+  if (install_sigsys_debugging())
+    return -1;
+
+  if (install_glob_syscall_filter())
+    return -2;
+
+  return 0;
+}
+
+#endif // __linux__
 
 /**
  * Enables the stage 1 general sandbox. It applies a syscall filter which does
@@ -187,12 +217,20 @@ install_sigsys_debugging(void)
 int
 tor_global_sandbox(void)
 {
-  if (install_sigsys_debugging())
-    return -1;
 
-  if (install_glob_syscall_filter())
-    return -2;
+#if defined(__linux__)
+  return initialise_linux_sandbox();
 
+#elif defined(_WIN32)
+  log_warn(LD_BUG,"Windows sandboxing is not implemented. The feature is "
+      "currently disabled.");
   return 0;
+
+#elif defined(TARGET_OS_MAC)
+  log_warn(LD_BUG,"Mac OSX sandboxing is not implemented. The feature is "
+      "currently disabled");
+  return 0;
+
+#endif
 }
 
