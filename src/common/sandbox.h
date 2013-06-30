@@ -10,5 +10,5 @@
 
 int tor_global_sandbox(void);
 
-
 #endif /* SANDBOX_H_ */
+

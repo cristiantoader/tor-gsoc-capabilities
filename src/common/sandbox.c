@@ -16,7 +16,10 @@
 #define __LIBSECCOMP__
 
 #ifdef __LIBSECCOMP__
-static int install_glob_syscall_filter(void) {
+
+static int
+install_glob_syscall_filter(void)
+{
   int rc = 0, i, filter_size;
   scmp_filter_ctx ctx;
 
@@ -27,7 +30,7 @@ static int install_glob_syscall_filter(void) {
       break;
     }
 
-    if(general_filter != NULL) {
+    if (general_filter != NULL) {
       filter_size = sizeof(general_filter) / sizeof(general_filter[0]);
     } else {
       filter_size = 0;
@@ -36,23 +39,23 @@ static int install_glob_syscall_filter(void) {
     // TODO: precise file filters
 
     // add general filters
-    for(i = 0; i < filter_size; i++) {
+    for (i = 0; i < filter_size; i++) {
       rc = seccomp_rule_add_exact(ctx, SCMP_ACT_ALLOW, general_filter[i], 0);
       if (rc != 0) {
         break;
       }
     }
 
-    if(rc != 0) {
+    if (rc != 0) {
       break;
     }
 
     rc = seccomp_load(ctx);
-    if(rc != 0) {
+    if (rc != 0) {
       break;
     }
 
-  } while(0);
+  } while (0);
 
   seccomp_release(ctx);
 
@@ -60,7 +63,10 @@ static int install_glob_syscall_filter(void) {
 }
 
 #else
-static int install_glob_syscall_filter(void) {
+
+static int
+install_glob_syscall_filter(void)
+{
   struct sock_fprog prog = {
     .len = (unsigned short)(sizeof(test_filter)/sizeof(test_filter[0])),
     .filter = test_filter,
@@ -84,19 +90,21 @@ static int install_glob_syscall_filter(void) {
 }
 #endif
 
-
 /**
  * Debugging function which is called when a SIGSYS caught by the application.
  * It prints the bad signal that caused the OS to issue the SIGSYS.
  */
-static void sigsys_debugging(int nr, siginfo_t *info, void *void_context) {
+static void
+sigsys_debugging(int nr, siginfo_t *info, void *void_context)
+{
   ucontext_t *ctx = (ucontext_t *) (void_context);
   int syscall;
 
   if (info->si_code != SYS_SECCOMP)
     return;
 
-  if (!ctx) return;
+  if (!ctx)
+    return;
 
   syscall = ctx->uc_mcontext.gregs[REG_SYSCALL];
   fprintf(stderr, "Syscall was intercepted: %d\n!", syscall);
@@ -110,7 +118,9 @@ static void sigsys_debugging(int nr, siginfo_t *info, void *void_context) {
  * Purpose of this function is to help with debugging by identifying
  * filtered syscalls.
  */
-static int install_sigsys_debugging(void) {
+static int
+install_sigsys_debugging(void)
+{
   struct sigaction act;
   sigset_t mask;
 
@@ -136,22 +146,26 @@ static int install_sigsys_debugging(void) {
 /**
  * Stage 1 function that enables the global sandbox.
  */
-int tor_global_sandbox() {
+int
+tor_global_sandbox()
+{
   int ret = 0;
   const or_options_t *options;
 
   do {
     options = get_options();
-    if(options != NULL && !options->Sandbox) {
+    if (options != NULL && !options->Sandbox) {
       break;
     }
 
     tor_assert(install_sigsys_debugging() == 0);
 
     ret = install_glob_syscall_filter();
-    if(ret) break;
+    if (ret)
+      break;
 
-  } while(0);
+  } while (0);
 
   return ret;
 }
+
