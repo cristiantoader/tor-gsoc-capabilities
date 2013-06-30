@@ -1883,7 +1883,6 @@ do_main_loop(void)
     }
   }
 
-  // TODO: signals should be handled as part of the sandbox
   handle_signals(1);
 
   /* load the private keys, if we're supposed to have them, and set up the
@@ -1939,7 +1938,6 @@ do_main_loop(void)
     one_second.tv_sec = 1;
     one_second.tv_usec = 0;
 
-    // TODO: callback event here needs sandbox
     second_timer = periodic_timer_new(tor_libevent_get_base(),
                                       &one_second,
                                       second_elapsed_callback,
@@ -1955,7 +1953,6 @@ do_main_loop(void)
     refill_interval.tv_sec =  msecs/1000;
     refill_interval.tv_usec = (msecs%1000)*1000;
 
-    // TODO: another callback event here that needs sandboxing
     refill_timer = periodic_timer_new(tor_libevent_get_base(),
                                       &refill_interval,
                                       refill_callback,

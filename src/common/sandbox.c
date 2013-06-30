@@ -1,9 +1,14 @@
-/*
- * sandbox.c
- *
- *  Created on: 15 Jun 2013
- *      Author: cristi
- */
+/* Copyright (c) 2001 Matej Pfajfar.
+ * Copyright (c) 2001-2004, Roger Dingledine.
+ * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
+ * Copyright (c) 2007-2013, The Tor Project, Inc. */
+/* See LICENSE for licensing information */
+
+/**
+ * \file sandbox.c
+ * \brief Code to enable sandboxing.
+ **/
+
 #include <seccomp.h>
 #include <signal.h>
 #include <stdio.h>
@@ -11,8 +16,10 @@
 #include <stdlib.h>
 
 #include "sandbox.h"
-//#include "seccomp2.h"
 
+/** Variable used for storing all syscall numbers that will be allowed with the
+ * stage 1 general Tor sandbox.
+ */
 static int general_filter[] = {
     SCMP_SYS(access),
     SCMP_SYS(brk),
@@ -79,6 +86,11 @@ static int general_filter[] = {
     SCMP_SYS(socketcall)
 };
 
+/**
+ * Function responsible for setting up and enabling a global syscall filter.
+ * The function is a prototype developed for stage 1 of sandboxing Tor.
+ * Returns 0 on success.
+ */
 static int
 install_glob_syscall_filter(void)
 {
@@ -114,8 +126,9 @@ install_glob_syscall_filter(void)
 }
 
 /**
- * Debugging function which is called when a SIGSYS caught by the application.
- * It prints the bad signal that caused the OS to issue the SIGSYS.
+ * Function called when a SIGSYS is caught by the application. It prints the
+ * syscall number that triggered the SIGSYS response and terminates the
+ * application.
  */
 static void
 sigsys_debugging(int nr, siginfo_t *info, void *void_context)
@@ -138,7 +151,7 @@ sigsys_debugging(int nr, siginfo_t *info, void *void_context)
 /**
  * Function that adds a handler for SIGSYS, which is the signal thrown
  * when the application is issuing a syscall which is not allowed. The
- * Purpose of this function is to help with debugging by identifying
+ * main purpose of this function is to help with debugging by identifying
  * filtered syscalls.
  */
 static int
@@ -167,21 +180,19 @@ install_sigsys_debugging(void)
 }
 
 /**
- * Stage 1 function that enables the global sandbox.
+ * Enables the stage 1 general sandbox. It applies a syscall filter which does
+ * not restrict any Tor features. The filter is representative for the whole
+ * application.
  */
 int
 tor_global_sandbox(void)
 {
-  int ret = 0;
-
-  ret = install_sigsys_debugging();
-  if (ret)
+  if (install_sigsys_debugging())
     return -1;
 
-  ret = install_glob_syscall_filter();
-  if (ret)
-    return -1;
+  if (install_glob_syscall_filter())
+    return -2;
 
-  return ret;
+  return 0;
 }
 
