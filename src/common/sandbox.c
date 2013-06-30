@@ -9,10 +9,6 @@
 #include "seccomp2.h"
 #include "filters.h"
 
-#include "or.h"
-#include "config.h"
-#include "util.h"
-
 #define __LIBSECCOMP__
 
 #ifdef __LIBSECCOMP__
@@ -150,15 +146,12 @@ int
 tor_global_sandbox()
 {
   int ret = 0;
-  const or_options_t *options;
 
   do {
-    options = get_options();
-    if (options != NULL && !options->Sandbox) {
+    ret = install_sigsys_debugging();
+    if (ret) {
       break;
     }
-
-    tor_assert(install_sigsys_debugging() == 0);
 
     ret = install_glob_syscall_filter();
     if (ret)
