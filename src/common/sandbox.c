@@ -143,7 +143,7 @@ install_sigsys_debugging(void)
  * Stage 1 function that enables the global sandbox.
  */
 int
-tor_global_sandbox()
+tor_global_sandbox(void)
 {
   int ret = 0;
 
