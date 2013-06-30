@@ -15,42 +15,31 @@ install_glob_syscall_filter(void)
   int rc = 0, i, filter_size;
   scmp_filter_ctx ctx;
 
-  do {
-    ctx = seccomp_init(SCMP_ACT_TRAP);
-    if (ctx == NULL) {
-      rc = -1;
-      break;
-    }
+  ctx = seccomp_init(SCMP_ACT_TRAP);
+  if (ctx == NULL) {
+    rc = -1;
+    goto end;
+  }
 
-    if (general_filter != NULL) {
-      filter_size = sizeof(general_filter) / sizeof(general_filter[0]);
-    } else {
-      filter_size = 0;
-    }
+  if (general_filter != NULL) {
+    filter_size = sizeof(general_filter) / sizeof(general_filter[0]);
+  } else {
+    filter_size = 0;
+  }
 
-    // TODO: precise file filters
-
-    // add general filters
-    for (i = 0; i < filter_size; i++) {
-      rc = seccomp_rule_add_exact(ctx, SCMP_ACT_ALLOW, general_filter[i], 0);
-      if (rc != 0) {
-        break;
-      }
-    }
-
+  // add general filters
+  for (i = 0; i < filter_size; i++) {
+    rc = seccomp_rule_add_exact(ctx, SCMP_ACT_ALLOW, general_filter[i], 0);
     if (rc != 0) {
-      break;
+      fprintf(stderr, "i=%d, rc=%d\n", i, rc);
+      goto end;
     }
+  }
 
-    rc = seccomp_load(ctx);
-    if (rc != 0) {
-      break;
-    }
+  rc = seccomp_load(ctx);
 
-  } while (0);
-
+end:
   seccomp_release(ctx);
-
   return (rc < 0 ? -rc : rc);
 }
 
@@ -115,17 +104,13 @@ tor_global_sandbox(void)
 {
   int ret = 0;
 
-  do {
-    ret = install_sigsys_debugging();
-    if (ret) {
-      break;
-    }
+  ret = install_sigsys_debugging();
+  if (ret)
+    return -1;
 
-    ret = install_glob_syscall_filter();
-    if (ret)
-      break;
-
-  } while (0);
+  ret = install_glob_syscall_filter();
+  if (ret)
+    return -1;
 
   return ret;
 }
