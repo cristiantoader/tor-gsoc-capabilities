@@ -8,6 +8,10 @@
 #ifndef SANDBOX_H_
 #define SANDBOX_H_
 
+#ifndef SYS_SECCOMP
+#define SYS_SECCOMP 1
+#endif
+
 int tor_global_sandbox(void);
 
 #endif /* SANDBOX_H_ */

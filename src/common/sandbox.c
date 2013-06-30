@@ -5,9 +5,13 @@
  *      Author: cristi
  */
 #include <seccomp.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include "sandbox.h"
-#include "seccomp2.h"
+//#include "seccomp2.h"
 
 static int general_filter[] = {
     SCMP_SYS(access),
@@ -95,7 +99,7 @@ install_glob_syscall_filter(void)
 
   // add general filters
   for (i = 0; i < filter_size; i++) {
-    rc = seccomp_rule_add_exact(ctx, SCMP_ACT_ALLOW, general_filter[i], 0);
+    rc = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, general_filter[i], 0);
     if (rc != 0) {
       fprintf(stderr, "i=%d, rc=%d\n", i, rc);
       goto end;
@@ -104,7 +108,7 @@ install_glob_syscall_filter(void)
 
   rc = seccomp_load(ctx);
 
-end:
+ end:
   seccomp_release(ctx);
   return (rc < 0 ? -rc : rc);
 }
@@ -126,9 +130,9 @@ sigsys_debugging(int nr, siginfo_t *info, void *void_context)
     return;
 
   syscall = ctx->uc_mcontext.gregs[0];
-  fprintf(stderr, "Syscall was intercepted: %d\n!", syscall);
+  fprintf(stderr, "Syscall was intercepted: %d!\n", syscall);
 
-  return;
+  exit(0);
 }
 
 /**
