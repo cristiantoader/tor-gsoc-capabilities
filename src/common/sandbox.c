@@ -51,6 +51,7 @@ static int general_filter[] = {
     SCMP_SYS(gettimeofday),
     SCMP_SYS(getuid32),
     SCMP_SYS(_llseek),
+    SCMP_SYS(mlockall),
     SCMP_SYS(mmap2),
     SCMP_SYS(mprotect),
     SCMP_SYS(mremap),
@@ -91,7 +92,7 @@ static int general_filter[] = {
     SCMP_SYS(socketpair),
 
     // TODO: remove when accept4 is fixed
-//    SCMP_SYS(socketcall)
+    SCMP_SYS(socketcall)
 };
 
 /**
