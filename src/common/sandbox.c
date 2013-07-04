@@ -16,6 +16,8 @@
 #include "sandbox.h"
 #include "torlog.h"
 
+#define __DEBUGGING_CLOSE
+
 /*
  * Based on the implementation and OS features, a more restrictive ifdef
  * should be defined.
@@ -25,6 +27,7 @@
 #include <seccomp.h>
 #include <signal.h>
 #include <unistd.h>
+#include <ucontext.h>
 
 /** Variable used for storing all syscall numbers that will be allowed with the
  * stage 1 general Tor sandbox.
@@ -137,15 +140,16 @@ install_glob_syscall_filter(void)
 }
 
 /**
- * Function called when a SIGSYS is caught by the application. It terminates
- * the application and notifies the user that an error has occurred.
+ * Function called when a SIGSYS is caught by the application. It notifies the
+ * user that an error has occurred and either terminates or allows the
+ * application to continue execution, based on the __DEBUGGING_CLOSE symbol.
  */
 static void
 sigsys_debugging(int nr, siginfo_t *info, void *void_context)
 {
   ucontext_t *ctx = (ucontext_t *) (void_context);
-  char message[] = "(Sandbox) bad syscall was caught.\n";
-  int rv = 0;
+  char message[64];
+  int rv = 0, syscall, length;
 
   if (info->si_code != SYS_SECCOMP)
     return;
@@ -153,11 +157,18 @@ sigsys_debugging(int nr, siginfo_t *info, void *void_context)
   if (!ctx)
     return;
 
-  rv = write(STDOUT_FILENO, message, 34);
-  if (rv != 34)
+  syscall = ctx->uc_mcontext.gregs[11];
+
+  length = snprintf(message, 64, "(Sandbox) bad syscall (%d) was caught.\n",
+      syscall);
+
+  rv = write(STDOUT_FILENO, message, length);
+  if (rv != length)
     _exit(2);
 
+#if defined(__DEBUGGING_CLOSE)
   _exit(1);
+#endif // __DEBUGGING_CLOSE
 }
 
 /**
