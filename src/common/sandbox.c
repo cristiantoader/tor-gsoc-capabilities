@@ -24,6 +24,7 @@
 
 #include <seccomp.h>
 #include <signal.h>
+#include <unistd.h>
 
 /** Variable used for storing all syscall numbers that will be allowed with the
  * stage 1 general Tor sandbox.
@@ -75,8 +76,7 @@ static int general_filter[] = {
     SCMP_SYS(exit),
 
     // socket syscalls
-    // TODO: fails with -33 (EDOM)
-//    SCMP_SYS(accept4),
+    SCMP_SYS(accept4),
     SCMP_SYS(bind),
     SCMP_SYS(connect),
     SCMP_SYS(getsockname),
@@ -91,7 +91,7 @@ static int general_filter[] = {
     SCMP_SYS(socketpair),
 
     // TODO: remove when accept4 is fixed
-    SCMP_SYS(socketcall)
+//    SCMP_SYS(socketcall)
 };
 
 /**
@@ -136,15 +136,15 @@ install_glob_syscall_filter(void)
 }
 
 /**
- * Function called when a SIGSYS is caught by the application. It prints the
- * syscall number that triggered the SIGSYS response and terminates the
- * application.
+ * Function called when a SIGSYS is caught by the application. It terminates
+ * the application and notifies the user that an error has occurred.
  */
 static void
 sigsys_debugging(int nr, siginfo_t *info, void *void_context)
 {
   ucontext_t *ctx = (ucontext_t *) (void_context);
-  int syscall;
+  char message[] = "(Sandbox) bad syscall was caught.\n";
+  int rv = 0;
 
   if (info->si_code != SYS_SECCOMP)
     return;
@@ -152,10 +152,11 @@ sigsys_debugging(int nr, siginfo_t *info, void *void_context)
   if (!ctx)
     return;
 
-  syscall = ctx->uc_mcontext.gregs[0];
-  log_err(LD_BUG,"(Sandbox) bad syscall was caught: %d!", syscall);
+  rv = write(STDOUT_FILENO, message, 34);
+  if (rv != 34)
+    _exit(2);
 
-  exit(0);
+  _exit(1);
 }
 
 /**
