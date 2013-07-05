@@ -24,6 +24,7 @@
 #define __DEBUGGING_CLOSE
 
 #if defined(USE_LIBSECCOMP)
+#include <sys/syscall.h>
 #include <seccomp.h>
 #include <signal.h>
 #include <unistd.h>
@@ -42,20 +43,46 @@ static int general_filter[] = {
     SCMP_SYS(epoll_ctl),
     SCMP_SYS(epoll_wait),
     SCMP_SYS(execve),
+    SCMP_SYS(fcntl),
+#ifdef __NR_fcntl64
+    /* Older libseccomp versions don't define PNR entries for all of these,
+     * so we need to ifdef them here.*/
     SCMP_SYS(fcntl64),
+#endif
     SCMP_SYS(flock),
+    SCMP_SYS(fstat),
+#ifdef __NR_fstat64
     SCMP_SYS(fstat64),
+#endif
     SCMP_SYS(futex),
     SCMP_SYS(getdents64),
+    SCMP_SYS(getegid),
+#ifdef __NR_getegid32
     SCMP_SYS(getegid32),
+#endif
+    SCMP_SYS(geteuid),
+#ifdef __NR_geteuid32
     SCMP_SYS(geteuid32),
+#endif
+    SCMP_SYS(getgid),
+#ifdef __NR_getgid32
     SCMP_SYS(getgid32),
+#endif
     SCMP_SYS(getrlimit),
     SCMP_SYS(gettimeofday),
+    SCMP_SYS(getuid),
+#ifdef __NR_getuid32
     SCMP_SYS(getuid32),
+#endif
+    SCMP_SYS(lseek),
+#ifdef __NR__llseek
     SCMP_SYS(_llseek),
+#endif
     SCMP_SYS(mlockall),
+    SCMP_SYS(mmap),
+#ifdef __NR_mmap2
     SCMP_SYS(mmap2),
+#endif
     SCMP_SYS(mprotect),
     SCMP_SYS(mremap),
     SCMP_SYS(munmap),
@@ -68,11 +95,16 @@ static int general_filter[] = {
     SCMP_SYS(rt_sigaction),
     SCMP_SYS(rt_sigprocmask),
     SCMP_SYS(rt_sigreturn),
+#ifdef __NR_sigreturn
     SCMP_SYS(sigreturn),
+#endif
     SCMP_SYS(set_robust_list),
     SCMP_SYS(set_thread_area),
     SCMP_SYS(set_tid_address),
+    SCMP_SYS(stat),
+#ifdef __NR_stat64
     SCMP_SYS(stat64),
+#endif
     SCMP_SYS(time),
     SCMP_SYS(uname),
     SCMP_SYS(write),
@@ -86,16 +118,24 @@ static int general_filter[] = {
     SCMP_SYS(getsockname),
     SCMP_SYS(getsockopt),
     SCMP_SYS(listen),
+#if __NR_recv >= 0
+    /* This is a kludge; It's necessary on 64-bit with libseccomp 1.0.0; I
+     * don't know if other 64-bit or other versions require it. */
     SCMP_SYS(recv),
+#endif
     SCMP_SYS(recvmsg),
+#if __NR_send >= 0
     SCMP_SYS(send),
+#endif
     SCMP_SYS(sendto),
     SCMP_SYS(setsockopt),
     SCMP_SYS(socket),
     SCMP_SYS(socketpair),
 
     // TODO: remove when accept4 is fixed
+#ifdef __NR_socketcall
     SCMP_SYS(socketcall)
+#endif
 };
 
 /**
@@ -158,7 +198,8 @@ sigsys_debugging(int nr, siginfo_t *info, void *void_context)
   if (!ctx)
     return;
 
-  syscall = ctx->uc_mcontext.gregs[11];
+  syscall = ctx->uc_mcontext.gregs[11]; /*XXXX This magic number is wrong
+                                         * on some architectures. */
 
   length = snprintf(message, 64, "(Sandbox) bad syscall (%d) was caught.\n",
       syscall);
