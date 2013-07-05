@@ -15,15 +15,15 @@
 
 #include "sandbox.h"
 #include "torlog.h"
+#include "orconfig.h"
+
+#if defined(HAVE_SECCOMP_H) && defined(__linux__)
+#define USE_LIBSECCOMP
+#endif
 
 #define __DEBUGGING_CLOSE
 
-/*
- * Based on the implementation and OS features, a more restrictive ifdef
- * should be defined.
- */
-#if defined(__linux__)
-
+#if defined(USE_LIBSECCOMP)
 #include <seccomp.h>
 #include <signal.h>
 #include <unistd.h>
@@ -126,7 +126,7 @@ install_glob_syscall_filter(void)
   for (i = 0; i < filter_size; i++) {
     rc = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, general_filter[i], 0);
     if (rc != 0) {
-      log_err(LD_BUG,"(Sandbox) failed to add syscall index %d ,"
+      log_err(LD_BUG,"(Sandbox) failed to add syscall index %d, "
           "received libseccomp error %d", i, rc);
       goto end;
     }
@@ -150,6 +150,7 @@ sigsys_debugging(int nr, siginfo_t *info, void *void_context)
   ucontext_t *ctx = (ucontext_t *) (void_context);
   char message[64];
   int rv = 0, syscall, length;
+  (void) nr;
 
   if (info->si_code != SYS_SECCOMP)
     return;
@@ -201,15 +202,15 @@ install_sigsys_debugging(void)
 
   return 0;
 }
-#endif // __linux__
+#endif // USE_LIBSECCOMP
 
-#ifdef __linux__
+#ifdef USE_LIBSECCOMP
 /**
  * Initialises the syscall sandbox filter for any linux architecture, taking
  * into account various available features for different linux flavours.
  */
 static int
-initialise_linux_sandbox(void)
+initialise_libseccomp_sandbox(void)
 {
   if (install_sigsys_debugging())
     return -1;
@@ -220,7 +221,7 @@ initialise_linux_sandbox(void)
   return 0;
 }
 
-#endif // __linux__
+#endif // USE_LIBSECCOMP
 
 /**
  * Enables the stage 1 general sandbox. It applies a syscall filter which does
@@ -231,8 +232,8 @@ int
 tor_global_sandbox(void)
 {
 
-#if defined(__linux__)
-  return initialise_linux_sandbox();
+#if defined(USE_LIBSECCOMP)
+  return initialise_libseccomp_sandbox();
 
 #elif defined(_WIN32)
   log_warn(LD_BUG,"Windows sandboxing is not implemented. The feature is "
@@ -243,7 +244,10 @@ tor_global_sandbox(void)
   log_warn(LD_BUG,"Mac OSX sandboxing is not implemented. The feature is "
       "currently disabled");
   return 0;
-
+#else
+  log_warn(LD_BUG,"Sandboxing is not implemented for your platform. The "
+      "feature is currently disabled");
+  return 0;
 #endif
 }
 
