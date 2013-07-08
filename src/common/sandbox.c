@@ -24,11 +24,14 @@
 #define __DEBUGGING_CLOSE
 
 #if defined(USE_LIBSECCOMP)
+
+#define __USE_GNU
+
 #include <sys/syscall.h>
 #include <seccomp.h>
 #include <signal.h>
 #include <unistd.h>
-#include <ucontext.h>
+#include <sys/ucontext.h>
 
 /** Variable used for storing all syscall numbers that will be allowed with the
  * stage 1 general Tor sandbox.
@@ -198,8 +201,7 @@ sigsys_debugging(int nr, siginfo_t *info, void *void_context)
   if (!ctx)
     return;
 
-  syscall = ctx->uc_mcontext.gregs[11]; /*XXXX This magic number is wrong
-                                         * on some architectures. */
+  syscall = ctx->uc_mcontext.gregs[REG_EAX];
 
   length = snprintf(message, 64, "(Sandbox) bad syscall (%d) was caught.\n",
       syscall);
