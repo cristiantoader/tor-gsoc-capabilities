@@ -22,6 +22,32 @@
 
 #endif
 
+/**
+ * Linux definitions
+ */
+#ifdef __linux__
+
+#define __USE_GNU
+#include <sys/ucontext.h>
+
+/**
+ * Linux 32 bit definitions
+ */
+#if defined(__i386__)
+
+#define REG_SYSCALL REG_EAX
+
+/**
+ * Linux 64 bit definitions
+ */
+#elif defined(__x86_64__)
+
+#define REG_SYSCALL REG_RAX
+
+#endif
+
+#endif // __linux__
+
 int tor_global_sandbox(void);
 
 #endif /* SANDBOX_H_ */
