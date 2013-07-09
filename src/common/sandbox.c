@@ -78,6 +78,7 @@ static int general_filter[] = {
 #ifdef __NR__llseek
     SCMP_SYS(_llseek),
 #endif
+    SCMP_SYS(mkdir),
     SCMP_SYS(mlockall),
     SCMP_SYS(mmap),
 #ifdef __NR_mmap2
