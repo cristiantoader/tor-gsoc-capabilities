@@ -134,8 +134,10 @@ static int general_filter[] = {
 
     // TODO: remove when accept4 is fixed
 #ifdef __NR_socketcall
-    SCMP_SYS(socketcall)
+    SCMP_SYS(socketcall),
 #endif
+
+    SCMP_SYS(recvfrom)
 };
 
 /**
