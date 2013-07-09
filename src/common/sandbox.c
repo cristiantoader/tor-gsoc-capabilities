@@ -138,7 +138,8 @@ static int general_filter[] = {
     SCMP_SYS(socketcall),
 #endif
 
-    SCMP_SYS(recvfrom)
+    SCMP_SYS(recvfrom),
+    SCMP_SYS(unlink)
 };
 
 /**
