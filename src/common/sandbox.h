@@ -110,13 +110,22 @@ typedef struct sb_addr_info_el sb_addr_info_t;
 typedef int (*sandbox_filter_func_t)(scmp_filter_ctx ctx,
     sandbox_cfg_t *filter);
 
+
 /** Type that will be used in step 3 in order to manage multiple sandboxes.*/
 typedef struct {
-  /** function pointers associated with the filter */
-  sandbox_filter_func_t *filter_func;
+  /** Unique ID for the sandbox configuration*/
+  int id;
 
-  /** filter function pointer parameters */
-  sandbox_cfg_t *filter_dynamic;
+  struct {
+    /** function pointers associated with the filter */
+    sandbox_filter_func_t *func;
+
+    /** filter function pointer parameters */
+    sandbox_cfg_t *param;
+  } param_filter;
+
+  int *noparam_filter;
+
 } sandbox_t;
 
 /**

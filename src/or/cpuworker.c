@@ -393,6 +393,16 @@ connection_cpu_process_inbuf(connection_t *conn)
   return 0;
 }
 
+/**
+ * Function used to configure and initialise a more restrictive sandbox for
+ * the worker threads.
+ */
+static int
+sandbox_init_worker(void) {
+  sandbox_cfg_t* cfg = sandbox_cfg_new();
+
+}
+
 /** Implement a cpuworker.  'data' is an fdarray as returned by socketpair.
  * Read and writes from fdarray[1].  Reads requests, writes answers.
  *
