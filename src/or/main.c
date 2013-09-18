@@ -2707,10 +2707,10 @@ init_addrinfo(void)
   sandbox_add_addrinfo(hname);
 }
 
-static sandbox_cfg_t*
+static sandbox_cfg_param_t*
 sandbox_init_filter(void)
 {
-  sandbox_cfg_t *cfg = sandbox_cfg_new();
+  sandbox_t *cfg = sandbox_cfg_new();
 
   sandbox_cfg_allow_openat_filename(&cfg,
       get_datadir_fname("cached-status"), 1);
@@ -2854,7 +2854,7 @@ tor_main(int argc, char *argv[])
     return -1;
 
   if (get_options()->Sandbox) {
-    sandbox_cfg_t* cfg = sandbox_init_filter();
+    sandbox_t* cfg = sandbox_init_filter();
 
     if (sandbox_init(cfg)) {
       log_err(LD_BUG,"Failed to create syscall sandbox filter");

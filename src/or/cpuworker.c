@@ -399,7 +399,7 @@ connection_cpu_process_inbuf(connection_t *conn)
  */
 static int
 sandbox_init_worker(void) {
-  sandbox_cfg_t* cfg = sandbox_cfg_new();
+  sandbox_cfg_param_t* cfg = sandbox_cfg_new();
 
 }
 

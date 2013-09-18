@@ -32,7 +32,7 @@
 struct sandbox_cfg_elem;
 
 /** Typedef to structure used to manage a sandbox configuration. */
-typedef struct sandbox_cfg_elem sandbox_cfg_t;
+typedef struct sandbox_cfg_elem sandbox_cfg_param_t;
 
 /**
  * Linux definitions
@@ -50,11 +50,13 @@ typedef struct sandbox_cfg_elem sandbox_cfg_t;
 #define PARAM_NUM 1
 
 /**
- * Enum used to manage the type of the implementation for general purpose.
+ * Enum used to manage the type of sandbox used with the parameter list.
  */
 typedef enum {
-  /** Libseccomp implementation based on seccomp2*/
-  LIBSECCOMP2 = 0
+  /** General sandbox implementation used with the main thread. */
+  SB_GENERAL = 0,
+  /** Worker thread sandbox implementation. */
+  SB_WORKER_THREAD
 } SB_IMPL;
 
 /**
@@ -108,22 +110,33 @@ typedef struct sb_addr_info_el sb_addr_info_t;
 
 /** Function pointer defining the prototype of a filter function.*/
 typedef int (*sandbox_filter_func_t)(scmp_filter_ctx ctx,
-    sandbox_cfg_t *filter);
+    sandbox_cfg_param_t *filter);
 
+
+/**
+ * Structure used in order to associate a function pointer used in the
+ * initialisation of the sandbox, with its corresponding list of parameters.
+ */
+typedef struct {
+  int syscall;
+
+  /** function pointers associated with the filter */
+  sandbox_filter_func_t func;
+
+  /** filter function pointer parameters */
+  sandbox_cfg_param_t *param;
+
+} filter_param_t;
 
 /** Type that will be used in step 3 in order to manage multiple sandboxes.*/
 typedef struct {
   /** Unique ID for the sandbox configuration*/
   int id;
 
-  struct {
-    /** function pointers associated with the filter */
-    sandbox_filter_func_t *func;
+  /** Array of parameter filter entries. */
+  filter_param_t* param_filter;
 
-    /** filter function pointer parameters */
-    sandbox_cfg_t *param;
-  } param_filter;
-
+  /** Array of no parameter filter entries; only syscall numbers. */
   int *noparam_filter;
 
 } sandbox_t;
@@ -174,8 +187,9 @@ const char* sandbox_intern_string(const char *param);
 #define sandbox_intern_string(s) (s)
 #endif
 
-/** Creates an empty sandbox configuration file.*/
-sandbox_cfg_t * sandbox_cfg_new(void);
+/** Creates an empty sandbox configuration file. The impl parameter dictates
+ * the type of configuration. */
+sandbox_t * sandbox_cfg_new(SB_IMPL impl);
 
 /**
  * Function used to add a open allowed filename to a supplied configuration.
@@ -183,7 +197,7 @@ sandbox_cfg_t * sandbox_cfg_new(void);
  * function that the char* needs to be free-ed, 0 means the pointer does not
  * need to be free-ed.
  */
-int sandbox_cfg_allow_open_filename(sandbox_cfg_t **cfg, char *file,
+int sandbox_cfg_allow_open_filename(sandbox_t *cfg, char *file,
     int fr);
 
 /** Function used to add a series of open allowed filenames to a supplied
@@ -194,7 +208,7 @@ int sandbox_cfg_allow_open_filename(sandbox_cfg_t **cfg, char *file,
  *    that the char* needs to be free-ed, 0 means the pointer does not need to
  *    be free-ed; the final parameter needs to be <NULL, 0>.
  */
-int sandbox_cfg_allow_open_filename_array(sandbox_cfg_t **cfg, ...);
+int sandbox_cfg_allow_open_filename_array(sandbox_t *cfg, ...);
 
 /**
  * Function used to add a openat allowed filename to a supplied configuration.
@@ -202,7 +216,7 @@ int sandbox_cfg_allow_open_filename_array(sandbox_cfg_t **cfg, ...);
  * function that the char* needs to be free-ed, 0 means the pointer does not
  * need to be free-ed.
  */
-int sandbox_cfg_allow_openat_filename(sandbox_cfg_t **cfg, char *file,
+int sandbox_cfg_allow_openat_filename(sandbox_t *cfg, char *file,
     int fr);
 
 /** Function used to add a series of openat allowed filenames to a supplied
@@ -213,7 +227,7 @@ int sandbox_cfg_allow_openat_filename(sandbox_cfg_t **cfg, char *file,
  *    that the char* needs to be free-ed, 0 means the pointer does not need to
  *    be free-ed; the final parameter needs to be <NULL, 0>.
  */
-int sandbox_cfg_allow_openat_filename_array(sandbox_cfg_t **cfg, ...);
+int sandbox_cfg_allow_openat_filename_array(sandbox_t *cfg, ...);
 
 /**
  * Function used to add a execve allowed filename to a supplied configuration.
@@ -221,7 +235,7 @@ int sandbox_cfg_allow_openat_filename_array(sandbox_cfg_t **cfg, ...);
  * function that the char* needs to be free-ed, 0 means the pointer does not
  * need to be free-ed.
  */
-int sandbox_cfg_allow_execve(sandbox_cfg_t **cfg, const char *com);
+int sandbox_cfg_allow_execve(sandbox_t *cfg, const char *com);
 
 /** Function used to add a series of execve allowed filenames to a supplied
  * configuration.
@@ -231,7 +245,7 @@ int sandbox_cfg_allow_execve(sandbox_cfg_t **cfg, const char *com);
  *    that the char* needs to be free-ed, 0 means the pointer does not need to
  *    be free-ed; the final parameter needs to be <NULL, 0>.
  */
-int sandbox_cfg_allow_execve_array(sandbox_cfg_t **cfg, ...);
+int sandbox_cfg_allow_execve_array(sandbox_t *cfg, ...);
 
 /**
  * Function used to add a stat/stat64 allowed filename to a configuration.
@@ -239,7 +253,7 @@ int sandbox_cfg_allow_execve_array(sandbox_cfg_t **cfg, ...);
  * function that the char* needs to be free-ed, 0 means the pointer does not
  * need to be free-ed.
  */
-int sandbox_cfg_allow_stat_filename(sandbox_cfg_t **cfg, char *file,
+int sandbox_cfg_allow_stat_filename(sandbox_t *cfg, char *file,
     int fr);
 
 /** Function used to add a series of stat64 allowed filenames to a supplied
@@ -250,10 +264,10 @@ int sandbox_cfg_allow_stat_filename(sandbox_cfg_t **cfg, char *file,
  *    that the char* needs to be free-ed, 0 means the pointer does not need to
  *    be free-ed; the final parameter needs to be <NULL, 0>.
  */
-int sandbox_cfg_allow_stat_filename_array(sandbox_cfg_t **cfg, ...);
+int sandbox_cfg_allow_stat_filename_array(sandbox_t *cfg, ...);
 
 /** Function used to initialise a sandbox configuration.*/
-int sandbox_init(sandbox_cfg_t* cfg);
+int sandbox_init(sandbox_t *cfg);
 
 #endif /* SANDBOX_H_ */
 
