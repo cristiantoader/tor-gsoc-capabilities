@@ -2707,15 +2707,15 @@ init_addrinfo(void)
   sandbox_add_addrinfo(hname);
 }
 
-static sandbox_cfg_param_t*
+static sandbox_t*
 sandbox_init_filter(void)
 {
   sandbox_t *cfg = sandbox_cfg_new(SB_GENERAL);
 
-  sandbox_cfg_allow_openat_filename(&cfg,
+  sandbox_cfg_allow_openat_filename(cfg,
       get_datadir_fname("cached-status"), 1);
 
-  sandbox_cfg_allow_open_filename_array(&cfg,
+  sandbox_cfg_allow_open_filename_array(cfg,
       get_datadir_fname("cached-certs"), 1,
       get_datadir_fname("cached-certs.tmp"), 1,
       get_datadir_fname("cached-consensus"), 1,
@@ -2743,7 +2743,7 @@ sandbox_init_filter(void)
       NULL, 0
   );
 
-  sandbox_cfg_allow_stat_filename_array(&cfg,
+  sandbox_cfg_allow_stat_filename_array(cfg,
       get_datadir_fname(NULL), 1,
       get_datadir_fname("lock"), 1,
       get_datadir_fname("state"), 1,
@@ -2754,7 +2754,7 @@ sandbox_init_filter(void)
 
   // orport
   if (server_mode(get_options())) {
-    sandbox_cfg_allow_open_filename_array(&cfg,
+    sandbox_cfg_allow_open_filename_array(cfg,
         get_datadir_fname2("keys", "secret_id_key"), 1,
         get_datadir_fname2("keys", "secret_onion_key"), 1,
         get_datadir_fname2("keys", "secret_onion_key_ntor"), 1,
@@ -2772,14 +2772,14 @@ sandbox_init_filter(void)
         NULL, 0
     );
 
-    sandbox_cfg_allow_stat_filename_array(&cfg,
+    sandbox_cfg_allow_stat_filename_array(cfg,
         get_datadir_fname("keys"), 1,
         get_datadir_fname("stats/dirreq-stats"), 1,
         NULL, 0
     );
   }
 
-  sandbox_cfg_allow_execve(&cfg, "/usr/local/bin/tor");
+  sandbox_cfg_allow_execve(cfg, "/usr/local/bin/tor");
 
   init_addrinfo();
 

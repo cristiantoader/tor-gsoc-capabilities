@@ -60,8 +60,6 @@
 static int sandbox_global_id = 0;
 /**Determines if at least one sandbox is active.*/
 static int sandbox_active = 0;
-/** Holds the parameter list configuration for the sandbox.*/
-static sandbox_cfg_param_t *filter_dynamic = NULL;
 /** Holds a list of pre-recorded results from getaddrinfo().*/
 static sb_addr_info_t *sb_addr_info = NULL;
 
@@ -799,40 +797,22 @@ static filter_param_t filter_func[] = {
     {0,                         NULL,              NULL}
 };
 
-const char*
-sandbox_intern_string(const char *str)
-{
-  sandbox_cfg_param_t *elem;
-
-  if (str == NULL)
-    return NULL;
-
-  for (elem = filter_dynamic; elem != NULL; elem = elem->next) {
-    smp_param_t *param = elem->param;
-
-    if (param->prot && !strcmp(str, (char*)(param->value))) {
-      return (char*)(param->value);
-    }
-  }
-
-  log_info(LD_GENERAL, "(Sandbox) Parameter %s not found", str);
-  return str;
-}
-
 /**
  * Goes through the list of protected strings and searches for parameter str.
  * If str is found, the pointer towards the start of the protected string is
  * returned, otherwise a NULL pointer.
  */
-static char*
-find_prot_string(char *str) {
+const char*
+sandbox_intern_string(const char *str) {
   int i = 0;
-  char *sb_prot_mem_next = NULL;
+  char *sb_prot_mem_next = sb_prot_mem_base;
 
-  sb_prot_mem_next = sb_prot_mem_base;
-  if (sb_prot_mem_next == NULL) {
-    log_err(LD_GENERAL, "(Sandbox) protected memory base not set!");
+  if (str == NULL) {
     return NULL;
+  }
+
+  if (sb_prot_mem_next == NULL) {
+    return str;
   }
 
   for (i = 0; i < sb_prot_mem_size; i++) {
@@ -847,8 +827,8 @@ find_prot_string(char *str) {
     }
   }
 
-  log_info(LD_GENERAL, "(Sandbox) protected string not found.");
-  return NULL;
+  log_err(LD_GENERAL, "(Sandbox) Parameter %s not found", str);
+  return str;
 }
 
 /**
@@ -876,7 +856,7 @@ get_prot_string(sandbox_t* cfg) {
       // normal value
       char *nv = (char*)((smp_param_t *)el->param)->value;
       // protected value
-      char *pv = find_prot_string(nv);
+      char *pv = (char*) sandbox_intern_string(nv);
 
       if (!pv) {
         log_err(LD_BUG,"(Sandbox) Could not find string %s!", nv);
@@ -906,7 +886,7 @@ static int
 prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
 {
   int ret = 0, i;
-  size_t sb_prot_mem_size = 0, pr_mem_left = 0;
+  size_t pr_mem_left = 0;
   char *pr_mem_next = NULL;
 
   if(sandbox_active) {
@@ -914,7 +894,7 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
     return -1;
   }
 
-  for (i = 0; cfg->noparam_filter != NULL; i++) {
+  for (i = 0; cfg->param_filter[i].func != NULL; i++) {
     sandbox_cfg_param_t *el = NULL;
 
     // get total number of bytes required to mmap
@@ -937,7 +917,7 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
   pr_mem_next = sb_prot_mem_base + MALLOC_MP_LIM;
   pr_mem_left = sb_prot_mem_size;
 
-  for (i = 0; cfg->noparam_filter != NULL; i++) {
+  for (i = 0; cfg->param_filter[i].func != NULL; i++) {
     sandbox_cfg_param_t *el = NULL;
 
     // change el value pointer to protected
@@ -1116,7 +1096,7 @@ sandbox_cfg_allow_stat_filename_array(sandbox_t *cfg, ...)
   va_list ap;
   va_start(ap, cfg);
 
-  root = find_parameter_list(cfg->param_filter, SCMP_SYS(stat));
+  root = find_parameter_list(cfg->param_filter, SCMP_SYS(stat64));
   if (!root) {
     log_err(LD_BUG,"(Sandbox) sandbox_cfg_allow_open_filename_array fail");
     ret = -1;
@@ -1380,7 +1360,7 @@ add_param_filter(scmp_filter_ctx ctx, sandbox_t* cfg)
   int rc = 0;
 
   // function pointer
-  for (i = 0; i < ARRAY_LENGTH(filter_func); i++) {
+  for (i = 0; i < cfg->param_filter[i].func != NULL; i++) {
     if ((cfg->param_filter[i].func)(ctx, cfg->param_filter[i].param)) {
       log_err(LD_BUG,"(Sandbox) failed to add syscall %d, received %d", i, rc);
       return rc;
@@ -1587,6 +1567,7 @@ sandbox_cfg_new(SB_IMPL impl)
     log_err(LD_BUG,"(Sandbox) Failed sandbox_t malloc");
     goto end;
   }
+  memset(sb, 0x00, sizeof(sandbox_t));
 
   sb->id = sandbox_next_id();
 
