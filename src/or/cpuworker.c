@@ -25,6 +25,7 @@
 #include "onion.h"
 #include "rephist.h"
 #include "router.h"
+#include "../common/sandbox.h"
 
 /** The maximum number of cpuworker processes we will keep around. */
 #define MAX_CPUWORKERS 16
@@ -399,8 +400,8 @@ connection_cpu_process_inbuf(connection_t *conn)
  */
 static int
 sandbox_init_worker(void) {
-  sandbox_cfg_param_t* cfg = sandbox_cfg_new();
-
+  sandbox_t* cfg = sandbox_cfg_new(SB_WORKER_THREAD);
+  return 0;
 }
 
 /** Implement a cpuworker.  'data' is an fdarray as returned by socketpair.
@@ -431,6 +432,13 @@ cpuworker_main(void *data)
   handle_signals(0); /* ignore interrupts from the keyboard, etc */
 #endif
   tor_free(data);
+
+  if (sandbox_init_worker()) {
+    log_info(LD_OR, "Failed to initialise worker thread sandbox. Exiting.");
+    tor_close_socket(fd);
+    crypto_thread_cleanup();
+    spawn_exit();
+  }
 
   setup_server_onion_keys(&onion_keys);
 

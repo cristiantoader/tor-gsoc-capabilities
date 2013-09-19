@@ -65,6 +65,11 @@ static sandbox_cfg_param_t *filter_dynamic = NULL;
 /** Holds a list of pre-recorded results from getaddrinfo().*/
 static sb_addr_info_t *sb_addr_info = NULL;
 
+/** Protected memory base*/
+static char*  sb_prot_mem_base = NULL;
+/** Protected memory size*/
+static size_t sb_prot_mem_size = 0;
+
 #undef SCMP_CMP
 #define SCMP_CMP(a,b,c) ((struct scmp_arg_cmp){(a),(b),(c),0})
 
@@ -815,21 +820,49 @@ sandbox_intern_string(const char *str)
 }
 
 /**
- * TODO: implement.. should go through list of protected strings, find str, and
- * return the protected pointer.
+ * Goes through the list of protected strings and searches for parameter str.
+ * If str is found, the pointer towards the start of the protected string is
+ * returned, otherwise a NULL pointer.
  */
 static char*
-get_prot_string(char *str) {
-  return 0;
+find_prot_string(char *str) {
+  int i = 0;
+  char *sb_prot_mem_next = NULL;
+
+  sb_prot_mem_next = sb_prot_mem_base;
+  if (sb_prot_mem_next == NULL) {
+    log_err(LD_GENERAL, "(Sandbox) protected memory base not set!");
+    return NULL;
+  }
+
+  for (i = 0; i < sb_prot_mem_size; i++) {
+    // if string not found, jumping 1 string at a time + \0 character
+    if (strncmp(str, sb_prot_mem_next, sb_prot_mem_size - i) != 0) {
+      size_t current_len = strnlen(sb_prot_mem_next, sb_prot_mem_size - i) + 1;
+
+      sb_prot_mem_next += current_len;
+      i += (current_len - 1);
+    } else {
+      return sb_prot_mem_next;
+    }
+  }
+
+  log_info(LD_GENERAL, "(Sandbox) protected string not found.");
+  return NULL;
 }
 
-// TODO: call this
-// TODO: rename..
+/**
+ * Function responsible of repointing the configuration string pointers towards
+ * protected memory pointers used with the first filter. If new strings are
+ * introduced with the filter, the operation will fail, which should happen
+ * since new filters may only be more restrictive than the current running
+ * filter.
+ */
 static int
-prot_strings2(sandbox_t* cfg) {
+get_prot_string(sandbox_t* cfg) {
   int ret = 0, i;
 
-  if(!sandbox_active) {
+  if(!sandbox_active || sb_prot_mem_base == NULL || sb_prot_mem_size == 0) {
     log_err(LD_BUG,"(Sandbox) Should first protect the strings!");
     ret = -1;
     goto out;
@@ -843,7 +876,7 @@ prot_strings2(sandbox_t* cfg) {
       // normal value
       char *nv = (char*)((smp_param_t *)el->param)->value;
       // protected value
-      char *pv = get_prot_string(nv);
+      char *pv = find_prot_string(nv);
 
       if (!pv) {
         log_err(LD_BUG,"(Sandbox) Could not find string %s!", nv);
@@ -873,8 +906,8 @@ static int
 prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
 {
   int ret = 0, i;
-  size_t pr_mem_size = 0, pr_mem_left = 0;
-  char *pr_mem_next = NULL, *pr_mem_base;
+  size_t sb_prot_mem_size = 0, pr_mem_left = 0;
+  char *pr_mem_next = NULL;
 
   if(sandbox_active) {
     log_err(LD_BUG,"(Sandbox) Cannot prot string once sandbox is active!");
@@ -886,23 +919,23 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
 
     // get total number of bytes required to mmap
     for (el = cfg->param_filter[i].param; el != NULL; el = el->next) {
-      pr_mem_size += strlen((char*) ((smp_param_t*)el->param)->value) + 1;
+      sb_prot_mem_size += strlen((char*) ((smp_param_t*)el->param)->value) + 1;
     }
 
   }
 
   // allocate protected memory with MALLOC_MP_LIM canary
-  pr_mem_base = (char*) mmap(NULL, MALLOC_MP_LIM + pr_mem_size,
+  sb_prot_mem_base = (char*) mmap(NULL, MALLOC_MP_LIM + sb_prot_mem_size,
       PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-  if (pr_mem_base == MAP_FAILED) {
+  if (sb_prot_mem_base == MAP_FAILED) {
     log_err(LD_BUG,"(Sandbox) failed allocate protected memory! mmap: %s",
         strerror(errno));
     ret = -1;
     goto out;
   }
 
-  pr_mem_next = pr_mem_base + MALLOC_MP_LIM;
-  pr_mem_left = pr_mem_size;
+  pr_mem_next = sb_prot_mem_base + MALLOC_MP_LIM;
+  pr_mem_left = sb_prot_mem_size;
 
   for (i = 0; cfg->noparam_filter != NULL; i++) {
     sandbox_cfg_param_t *el = NULL;
@@ -937,7 +970,7 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
   }
 
   // protecting from writes
-  if (mprotect(pr_mem_base, MALLOC_MP_LIM + pr_mem_size, PROT_READ)) {
+  if (mprotect(sb_prot_mem_base, MALLOC_MP_LIM + sb_prot_mem_size, PROT_READ)) {
     log_err(LD_BUG,"(Sandbox) failed to protect memory! mprotect: %s",
         strerror(errno));
     ret = -3;
@@ -949,7 +982,7 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
    */
   // no mremap of the protected base address
   ret = seccomp_rule_add(ctx, SCMP_ACT_KILL, SCMP_SYS(mremap), 1,
-      SCMP_CMP(0, SCMP_CMP_EQ, (intptr_t) pr_mem_base));
+      SCMP_CMP(0, SCMP_CMP_EQ, (intptr_t) sb_prot_mem_base));
   if (ret) {
     log_err(LD_BUG,"(Sandbox) mremap protected memory filter fail!");
     return ret;
@@ -957,7 +990,7 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
 
   // no munmap of the protected base address
   ret = seccomp_rule_add(ctx, SCMP_ACT_KILL, SCMP_SYS(munmap), 1,
-        SCMP_CMP(0, SCMP_CMP_EQ, (intptr_t) pr_mem_base));
+        SCMP_CMP(0, SCMP_CMP_EQ, (intptr_t) sb_prot_mem_base));
   if (ret) {
     log_err(LD_BUG,"(Sandbox) munmap protected memory filter fail!");
     return ret;
@@ -974,7 +1007,7 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
    * size of the canary.
    */
   ret = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(mprotect), 2,
-      SCMP_CMP(0, SCMP_CMP_LT, (intptr_t) pr_mem_base),
+      SCMP_CMP(0, SCMP_CMP_LT, (intptr_t) sb_prot_mem_base),
       SCMP_CMP(1, SCMP_CMP_LE, MALLOC_MP_LIM),
       SCMP_CMP(2, SCMP_CMP_EQ, PROT_READ|PROT_WRITE));
   if (ret) {
@@ -983,7 +1016,7 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
   }
 
   ret = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(mprotect), 2,
-      SCMP_CMP(0, SCMP_CMP_GT, (intptr_t) pr_mem_base + pr_mem_size +
+      SCMP_CMP(0, SCMP_CMP_GT, (intptr_t) sb_prot_mem_base + sb_prot_mem_size +
           MALLOC_MP_LIM),
       SCMP_CMP(1, SCMP_CMP_LE, MALLOC_MP_LIM),
       SCMP_CMP(2, SCMP_CMP_EQ, PROT_READ|PROT_WRITE));
@@ -991,6 +1024,9 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
     log_err(LD_BUG,"(Sandbox) mprotect protected memory filter fail (GT)!");
     return ret;
   }
+
+  // setting global variables to point towards strings only
+  sb_prot_mem_base = sb_prot_mem_base + MALLOC_MP_LIM;
 
  out:
    return ret;
@@ -1396,9 +1432,8 @@ install_syscall_filter(sandbox_t* cfg)
   }
 
   // protectign sandbox parameter strings
-  if ((rc = prot_strings(ctx, cfg))) {
-    goto end;
-  }
+  rc = sandbox_active ? get_prot_string(cfg) : prot_strings(ctx, cfg);
+  if (rc) goto end;
 
   // add parameter filters
   if ((rc = add_param_filter(ctx, cfg))) {
@@ -1512,28 +1547,6 @@ install_sigsys_debugging(void)
   return 0;
 }
 
-/**
- * Function responsible of registering the sandbox_cfg_t list of parameter
- * syscall filters to the existing parameter list. This is used for incipient
- * multiple-sandbox support.
- */
-static int
-register_cfg(sandbox_cfg_param_t* cfg)
-{
-  sandbox_cfg_param_t *elem = NULL;
-
-  if (filter_dynamic == NULL) {
-    filter_dynamic = cfg;
-    return 0;
-  }
-
-  for (elem = filter_dynamic; elem->next != NULL; elem = elem->next);
-
-  elem->next = cfg;
-
-  return 0;
-}
-
 #endif // USE_LIBSECCOMP
 
 #ifdef USE_LIBSECCOMP
@@ -1549,9 +1562,6 @@ initialise_libseccomp_sandbox(sandbox_t* cfg)
 
   if (install_syscall_filter(cfg))
     return -2;
-
-  if (register_cfg(cfg))
-    return -3;
 
   return 0;
 }

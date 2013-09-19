@@ -2710,7 +2710,7 @@ init_addrinfo(void)
 static sandbox_cfg_param_t*
 sandbox_init_filter(void)
 {
-  sandbox_t *cfg = sandbox_cfg_new();
+  sandbox_t *cfg = sandbox_cfg_new(SB_GENERAL);
 
   sandbox_cfg_allow_openat_filename(&cfg,
       get_datadir_fname("cached-status"), 1);
