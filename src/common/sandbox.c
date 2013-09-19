@@ -56,8 +56,6 @@
 #include <time.h>
 #include <poll.h>
 
-// TODO: rebase comment..
-
 /** Used in order to generate sandbox ids*/
 static int sandbox_global_id = 0;
 /**Determines if at least one sandbox is active.*/
