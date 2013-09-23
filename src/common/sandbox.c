@@ -153,11 +153,14 @@ static int filter_nopar_gen[] = {
     SCMP_SYS(recvfrom),
     SCMP_SYS(sendto),
     SCMP_SYS(unlink),
+
+    // end of filter
     EO_FILTER
 };
 
 /** Worker thread no-parameter filter. */
 static int filter_nopar_wt[] = {
+    // end of filter
     EO_FILTER
 };
 
@@ -576,14 +579,13 @@ sb_epoll_ctl(scmp_filter_ctx ctx, sandbox_cfg_param_t *filter)
 }
 
 /**
- * Function responsible for setting up the fcntl64 syscall for
+ * Function responsible for setting up the prctl syscall for
  * the seccomp filter sandbox.
  *
- * NOTE: if multiple filters need to be added, the PR_SECCOMP parameter needs
- * to be whitelisted in this function.
+ * TODO: need to reload a filter which has this function for all end states.
  */
 static int
-sb_prctl(scmp_filter_ctx ctx, sandbox_cfg_param_t *filter)
+sb_prctl_noseccomp(scmp_filter_ctx ctx, sandbox_cfg_param_t *filter)
 {
   int rc = 0;
   (void) filter;
@@ -593,6 +595,37 @@ sb_prctl(scmp_filter_ctx ctx, sandbox_cfg_param_t *filter)
   if (rc)
     return rc;
 
+  return 0;
+}
+
+/**
+ * Function responsible for setting up the prctl syscall for
+ * the seccomp filter sandbox. This function allows for new seccomp filters
+ * to be added.
+ */
+static int
+sb_prctl_seccomp(scmp_filter_ctx ctx, sandbox_cfg_param_t *filter)
+{
+  int rc = 0;
+  (void) filter;
+
+  rc = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(prctl), 1,
+      SCMP_CMP(0, SCMP_CMP_EQ, PR_SET_DUMPABLE));
+  if (rc)
+    return rc;
+
+  /**
+   * Syscalls that allow to load a new seccomp filter
+   */
+  rc = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(prctl), 1,
+      SCMP_CMP(0, SCMP_CMP_EQ, 0x26));
+  if (rc)
+    return rc;
+
+  rc = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(prctl), 1,
+      SCMP_CMP(0, SCMP_CMP_EQ, PR_SET_SECCOMP));
+  if (rc)
+    return rc;
   return 0;
 }
 
@@ -789,7 +822,7 @@ static filter_param_t filter_func_gen[] = {
     {SCMP_SYS(fcntl64),         sb_fcntl64,        NULL},
 #endif
     {SCMP_SYS(epoll_ctl),       sb_epoll_ctl,      NULL},
-    {SCMP_SYS(prctl),           sb_prctl,          NULL},
+    {SCMP_SYS(prctl),           sb_prctl_seccomp,  NULL},
     {SCMP_SYS(mprotect),        sb_mprotect,       NULL},
     {SCMP_SYS(flock),           sb_flock,          NULL},
     {SCMP_SYS(futex),           sb_futex,          NULL},
@@ -862,7 +895,7 @@ get_prot_string(sandbox_t* cfg) {
     goto out;
   }
 
-  for (i = 0; cfg->noparam_filter != NULL; i++) {
+  for (i = 0; cfg->param_filter[i].func != NULL; i++) {
     sandbox_cfg_param_t *el = NULL;
 
     // change el value pointer to protected
@@ -1395,7 +1428,7 @@ add_noparam_filter(scmp_filter_ctx ctx, sandbox_t* cfg)
   int rc = 0;
 
   // add general filters
-  for (i = 0; i < cfg->noparam_filter[i] != EO_FILTER; i++) {
+  for (i = 0; cfg->noparam_filter[i] != EO_FILTER; i++) {
     rc = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, cfg->noparam_filter[i], 0);
     if (rc != 0) {
       log_err(LD_BUG,"(Sandbox) failed to add syscall index %d (NR=%d), "
@@ -1551,7 +1584,7 @@ install_sigsys_debugging(void)
 static int
 initialise_libseccomp_sandbox(sandbox_t* cfg)
 {
-  if (install_sigsys_debugging())
+  if (!sandbox_active && install_sigsys_debugging())
     return -1;
 
   if (install_syscall_filter(cfg))
