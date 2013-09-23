@@ -163,8 +163,6 @@ static int filter_nopar_gen[] = {
 
 /** Worker thread no-parameter filter. */
 static int filter_nopar_wt[] = {
-
-
     /*
      *  Socket syscalls
      */
@@ -863,7 +861,8 @@ static filter_param_t filter_func_wt[] = {
  * returned, otherwise a NULL pointer.
  */
 const char*
-sandbox_intern_string(const char *str) {
+sandbox_intern_string(const char *str)
+{
   int i = 0;
   char *sb_prot_mem_next = sb_prot_mem_base;
 
@@ -899,10 +898,11 @@ sandbox_intern_string(const char *str) {
  * filter.
  */
 static int
-get_prot_string(sandbox_t* cfg) {
+get_prot_string(sandbox_t* cfg)
+{
   int ret = 0, i;
 
-  if(!sandbox_active || sb_prot_mem_base == NULL || sb_prot_mem_size == 0) {
+  if (!sandbox_active || sb_prot_mem_base == NULL || sb_prot_mem_size == 0) {
     log_err(LD_BUG,"(Sandbox) Should first protect the strings!");
     ret = -1;
     goto out;
@@ -949,7 +949,7 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
   size_t pr_mem_left = 0;
   char *pr_mem_next = NULL;
 
-  if(sandbox_active) {
+  if (sandbox_active) {
     log_err(LD_BUG,"(Sandbox) Cannot prot string once sandbox is active!");
     return -1;
   }
@@ -961,7 +961,6 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
     for (el = cfg->param_filter[i].param; el != NULL; el = el->next) {
       sb_prot_mem_size += strlen((char*) ((smp_param_t*)el->param)->value) + 1;
     }
-
   }
 
   // allocate protected memory with MALLOC_MP_LIM canary
@@ -1010,7 +1009,8 @@ prot_strings(scmp_filter_ctx ctx, sandbox_t* cfg)
   }
 
   // protecting from writes
-  if (mprotect(sb_prot_mem_base, MALLOC_MP_LIM + sb_prot_mem_size, PROT_READ)) {
+  if (mprotect(sb_prot_mem_base, MALLOC_MP_LIM + sb_prot_mem_size,
+      PROT_READ)) {
     log_err(LD_BUG,"(Sandbox) failed to protect memory! mprotect: %s",
         strerror(errno));
     ret = -3;
@@ -1083,7 +1083,8 @@ new_element(int syscall, int index, intptr_t value)
 {
   smp_param_t *param = NULL;
 
-  sandbox_cfg_param_t *elem = (sandbox_cfg_param_t*) tor_malloc(sizeof(sandbox_cfg_param_t));
+  sandbox_cfg_param_t *elem = (sandbox_cfg_param_t*) tor_malloc(
+      sizeof(sandbox_cfg_param_t));
   if (!elem)
     return NULL;
 
@@ -1637,7 +1638,7 @@ sandbox_cfg_new(SB_IMPL impl)
   }
   memset(sb, 0x00, sizeof(sandbox_t));
 
-  switch(impl) {
+  switch (impl) {
   case SB_GENERAL:
     sb->id = sandbox_next_id();
 

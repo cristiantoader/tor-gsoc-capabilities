@@ -112,7 +112,6 @@ typedef struct sb_addr_info_el sb_addr_info_t;
 typedef int (*sandbox_filter_func_t)(scmp_filter_ctx ctx,
     sandbox_cfg_param_t *filter);
 
-
 /**
  * Structure used in order to associate a function pointer used in the
  * initialisation of the sandbox, with its corresponding list of parameters.

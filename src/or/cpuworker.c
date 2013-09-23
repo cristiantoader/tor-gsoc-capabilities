@@ -399,7 +399,8 @@ connection_cpu_process_inbuf(connection_t *conn)
  * the worker threads.
  */
 static int
-sandbox_init_worker(void) {
+sandbox_init_worker(void)
+{
   sandbox_t* cfg = sandbox_cfg_new(SB_WORKER_THREAD);
 
   if (sandbox_init(cfg)) {
