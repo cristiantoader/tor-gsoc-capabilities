@@ -1421,7 +1421,7 @@ add_param_filter(scmp_filter_ctx ctx, sandbox_t* cfg)
   int rc = 0;
 
   // function pointer
-  for (i = 0; i < cfg->param_filter[i].func != NULL; i++) {
+  for (i = 0; cfg->param_filter[i].func != NULL; i++) {
     if ((cfg->param_filter[i].func)(ctx, cfg->param_filter[i].param)) {
       log_err(LD_BUG,"(Sandbox) failed to add syscall %d, received %d", i, rc);
       return rc;
@@ -1640,6 +1640,8 @@ sandbox_cfg_new(SB_IMPL impl)
 
   switch (impl) {
   case SB_GENERAL:
+  case SB_GENERAL_NOSECCOMP:
+
     sb->id = sandbox_next_id();
 
     // no need to re-allocate since they are not modified
@@ -1652,6 +1654,17 @@ sandbox_cfg_new(SB_IMPL impl)
       goto end;
     }
     memcpy(sb->param_filter, filter_func_gen, sizeof(filter_func_gen));
+
+    // check if no-seccomp, and if so change prctl function pointer
+    if (impl == SB_GENERAL_NOSECCOMP) {
+      int i;
+
+      for (i = 0; sb->param_filter[i].func != NULL; i++) {
+        if (sb->param_filter[i].syscall == SCMP_SYS(prctl)) {
+          sb->param_filter[i].func = sb_prctl_noseccomp;
+        }
+      }
+    }
 
     break;
 

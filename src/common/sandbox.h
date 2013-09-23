@@ -53,8 +53,14 @@ typedef struct sandbox_cfg_elem sandbox_cfg_param_t;
  * Enum used to manage the type of sandbox used with the parameter list.
  */
 typedef enum {
-  /** General sandbox implementation used with the main thread. */
+  /** General sandbox implementation used with the main thread; allows loading
+   * new seccomp filters. */
   SB_GENERAL = 0,
+
+  /** General sandbox implementation used with the main thread; does not allow
+   * loading new seccomp filters. */
+  SB_GENERAL_NOSECCOMP,
+
   /** Worker thread sandbox implementation. */
   SB_WORKER_THREAD
 } SB_IMPL;

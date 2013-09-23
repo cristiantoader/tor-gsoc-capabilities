@@ -440,7 +440,7 @@ cpuworker_main(void *data)
 #endif
   tor_free(data);
 
-  if (sandbox_init_worker()) {
+  if (get_options()->Sandbox && sandbox_init_worker()) {
     log_info(LD_OR, "Failed to initialise worker thread sandbox. Exiting.");
     tor_close_socket(fd);
     crypto_thread_cleanup();
