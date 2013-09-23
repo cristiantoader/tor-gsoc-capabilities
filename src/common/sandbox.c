@@ -71,6 +71,9 @@ static size_t sb_prot_mem_size = 0;
 #undef SCMP_CMP
 #define SCMP_CMP(a,b,c) ((struct scmp_arg_cmp){(a),(b),(c),0})
 
+/** Definition marking the end of a no-parameter filter (safe value). */
+#define EO_FILTER INT_MIN
+
 /** Variable used for storing all syscall numbers that will be allowed with the
  * stage 1 general Tor sandbox.
  */
@@ -149,7 +152,13 @@ static int filter_nopar_gen[] = {
     SCMP_SYS(recvmsg),
     SCMP_SYS(recvfrom),
     SCMP_SYS(sendto),
-    SCMP_SYS(unlink)
+    SCMP_SYS(unlink),
+    EO_FILTER
+};
+
+/** Worker thread no-parameter filter. */
+static int filter_nopar_wt[] = {
+    EO_FILTER
 };
 
 /**
@@ -765,7 +774,7 @@ sb_stat64(scmp_filter_ctx ctx, sandbox_cfg_param_t *filter)
  * Array of function pointers responsible for filtering different syscalls at
  * a parameter level.
  */
-static filter_param_t filter_func[] = {
+static filter_param_t filter_func_gen[] = {
     {SCMP_SYS(rt_sigaction),    sb_rt_sigaction,   NULL},
     {SCMP_SYS(rt_sigprocmask),  sb_rt_sigprocmask, NULL},
     {SCMP_SYS(execve),          sb_execve,         NULL},
@@ -795,6 +804,11 @@ static filter_param_t filter_func[] = {
     {SCMP_SYS(rt_sigaction),    sb_getsockopt,     NULL},
     {SCMP_SYS(rt_sigaction),    sb_socketpair,     NULL},
     {0,                         NULL,              NULL}
+};
+
+/** Worker thread parameter filter. */
+static filter_param_t filter_func_wt[] = {
+    {0,                         NULL,               NULL}
 };
 
 /**
@@ -1375,17 +1389,17 @@ add_param_filter(scmp_filter_ctx ctx, sandbox_t* cfg)
  * have parameter filtering.
  */
 static int
-add_noparam_filter(scmp_filter_ctx ctx)
+add_noparam_filter(scmp_filter_ctx ctx, sandbox_t* cfg)
 {
   unsigned i;
   int rc = 0;
 
   // add general filters
-  for (i = 0; i < ARRAY_LENGTH(filter_nopar_gen); i++) {
-    rc = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, filter_nopar_gen[i], 0);
+  for (i = 0; i < cfg->noparam_filter[i] != EO_FILTER; i++) {
+    rc = seccomp_rule_add(ctx, SCMP_ACT_ALLOW, cfg->noparam_filter[i], 0);
     if (rc != 0) {
       log_err(LD_BUG,"(Sandbox) failed to add syscall index %d (NR=%d), "
-          "received libseccomp error %d", i, filter_nopar_gen[i], rc);
+          "received libseccomp error %d", i, cfg->noparam_filter[i], rc);
       return rc;
     }
   }
@@ -1422,7 +1436,7 @@ install_syscall_filter(sandbox_t* cfg)
   }
 
   // adding filters with no parameters
-  if ((rc = add_noparam_filter(ctx))) {
+  if ((rc = add_noparam_filter(ctx, cfg))) {
     log_err(LD_BUG, "(Sandbox) failed to add param filters!");
     goto end;
   }
@@ -1569,29 +1583,40 @@ sandbox_cfg_new(SB_IMPL impl)
   }
   memset(sb, 0x00, sizeof(sandbox_t));
 
-  sb->id = sandbox_next_id();
-
   switch(impl) {
   case SB_GENERAL:
+    sb->id = sandbox_next_id();
+
     // no need to re-allocate since they are not modified
     sb->noparam_filter = filter_nopar_gen;
 
     // need to allocate + copy as parameter list is modified
-    sb->param_filter = malloc(sizeof(filter_func));
+    sb->param_filter = malloc(sizeof(filter_func_gen));
     if (!sb->param_filter) {
       log_err(LD_BUG,"(Sandbox) Failed sandbox_t malloc");
       goto end;
     }
-    memcpy(sb->param_filter, filter_func, sizeof(filter_func));
+    memcpy(sb->param_filter, filter_func_gen, sizeof(filter_func_gen));
 
     break;
 
   case SB_WORKER_THREAD:
-    sb->noparam_filter = NULL;
-    sb->param_filter = NULL;
+    sb->id = sandbox_next_id();
+
+    sb->noparam_filter = filter_nopar_wt;
+    sb->param_filter = malloc(sizeof(filter_func_wt));
+    if (!sb->param_filter) {
+      log_err(LD_BUG,"(Sandbox) Failed sandbox_t malloc");
+      goto end;
+    }
+    memcpy(sb->param_filter, filter_func_wt, sizeof(filter_func_wt));
+
     break;
 
   default:
+    free(sb);
+    sb->noparam_filter = NULL;
+    sb->param_filter = NULL;
     log_err(LD_BUG,"(Sandbox) Unknown implementation type %d", impl);
     break;
   }

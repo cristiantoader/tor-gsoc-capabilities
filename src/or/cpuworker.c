@@ -401,6 +401,12 @@ connection_cpu_process_inbuf(connection_t *conn)
 static int
 sandbox_init_worker(void) {
   sandbox_t* cfg = sandbox_cfg_new(SB_WORKER_THREAD);
+
+  if (sandbox_init(cfg)) {
+    log_err(LD_BUG,"Failed to create syscall sandbox filter");
+    return -1;
+  }
+
   return 0;
 }
 
