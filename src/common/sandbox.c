@@ -58,6 +58,9 @@
 
 /** Used in order to generate sandbox ids*/
 static int sandbox_global_id = 0;
+/** Mutex used in order to sync increment of sandbox global ids.*/
+static pthread_mutex_t mutex_next_id = PTHREAD_MUTEX_INITIALIZER;
+
 /**Determines if at least one sandbox is active.*/
 static int sandbox_active = 0;
 /** Holds a list of pre-recorded results from getaddrinfo().*/
@@ -160,6 +163,16 @@ static int filter_nopar_gen[] = {
 
 /** Worker thread no-parameter filter. */
 static int filter_nopar_wt[] = {
+
+
+    /*
+     *  Socket syscalls
+     */
+#if defined(__i386)
+    SCMP_SYS(recv),
+    SCMP_SYS(send),
+#endif
+
     // end of filter
     EO_FILTER
 };
@@ -832,10 +845,10 @@ static filter_param_t filter_func_gen[] = {
     {SCMP_SYS(stat64),          sb_stat64,         NULL},
 #endif
 
-    {SCMP_SYS(rt_sigaction),    sb_socket,         NULL},
-    {SCMP_SYS(rt_sigaction),    sb_setsockopt,     NULL},
-    {SCMP_SYS(rt_sigaction),    sb_getsockopt,     NULL},
-    {SCMP_SYS(rt_sigaction),    sb_socketpair,     NULL},
+    {SCMP_SYS(socket),          sb_socket,         NULL},
+    {SCMP_SYS(setsockopt),      sb_setsockopt,     NULL},
+    {SCMP_SYS(getsockopt),      sb_getsockopt,     NULL},
+    {SCMP_SYS(socketpair),      sb_socketpair,     NULL},
     {0,                         NULL,              NULL}
 };
 
@@ -1458,7 +1471,7 @@ install_syscall_filter(sandbox_t* cfg)
     goto end;
   }
 
-  // protectign sandbox parameter strings
+  // protecting sandbox parameter strings
   rc = sandbox_active ? get_prot_string(cfg) : prot_strings(ctx, cfg);
   if (rc) goto end;
 
@@ -1584,11 +1597,15 @@ install_sigsys_debugging(void)
 static int
 initialise_libseccomp_sandbox(sandbox_t* cfg)
 {
-  if (!sandbox_active && install_sigsys_debugging())
+  if (!sandbox_active && install_sigsys_debugging()) {
+    log_err(LD_BUG,"(Sandbox) Failed to install sigsys debugging");
     return -1;
+  }
 
-  if (install_syscall_filter(cfg))
+  if (install_syscall_filter(cfg)) {
+    log_err(LD_BUG,"(Sandbox) Failed to install syscall filter");
     return -2;
+  }
 
   return 0;
 }
@@ -1601,7 +1618,11 @@ initialise_libseccomp_sandbox(sandbox_t* cfg)
 static int
 sandbox_next_id(void)
 {
-  return sandbox_global_id++;
+  pthread_mutex_lock(&mutex_next_id);
+  sandbox_global_id++;
+  pthread_mutex_unlock(&mutex_next_id);
+
+  return sandbox_global_id;
 }
 
 sandbox_t*
